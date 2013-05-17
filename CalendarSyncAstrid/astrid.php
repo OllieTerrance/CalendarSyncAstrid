@@ -49,7 +49,7 @@ X-WR-CALDESC:Tasks from your Astrid account.';
         $offset = intval($_GET["offset"]);
         foreach ($tasks->list as $i => $task) {
             if ($task->has_due_time) {
-                $event = array("BEGIN" => "VEVENT",
+                $event = array("BEGIN" => ($_GET["todo"] ? "VTODO" : "VEVENT"),
                                "DTSTART" => dateStr($task->due, $offset),
                                "DTEND" => dateStr($task->due, $offset),
                                "UID" => $task->uuid . ($_GET["i"] ? "+" . $_GET["i"] : ""),
@@ -57,7 +57,7 @@ X-WR-CALDESC:Tasks from your Astrid account.';
                                "DESCRIPTION" => preg_replace("/,/", "\\,", preg_replace("/\n/", "\\n", $task->notes)),
                                "LAST-MODIFIED" => dateStr($task->updated_at, $offset),
                                "SUMMARY" => preg_replace("/,/", "\\,", $task->title),
-                               "END" => "VEVENT");
+                               "END" => ($_GET["todo"] ? "VTODO" : "VEVENT"));
                 $eventMerged = array();
                 foreach ($event as $key => $item) {
                     $eventMerged[] = $key . ":" . $item;
@@ -67,13 +67,13 @@ X-WR-CALDESC:Tasks from your Astrid account.';
         }
         $tail = "END:VCALENDAR";
         $cal = $head . "\n" . implode("\n", $events) . "\n" . $tail;
-        if ($_GET["ical"]) {
+        if ($_GET["text"]) {
+            page('<p>This is your generated calendar in plain text format.  Click <a href="?token=' . $_GET["token"] . '&ical=1">here</a> to download it as an iCal file.</p>
+        <pre>' . $cal . '</pre>', false);
+        } else {
             header('Content-type: text/calendar');
             header('Content-Disposition: attachment; filename="astrid.ical"');
             print($cal);
-        } else {
-            page('<p>This is your generated calendar in plain text format.  Click <a href="?token=' . $_GET["token"] . '&ical=1">here</a> to download it as an iCal file.</p>
-        <pre>' . $cal . '</pre>', false);
         }
     } else {
         page('<p>An error was returned by Astrid:</p>
@@ -84,10 +84,11 @@ X-WR-CALDESC:Tasks from your Astrid account.';
                                      "provider" => "password",
                                      "secret" => $_POST["pass"]));
     if ($user->status === "success") {
-        page('<p><strong>Success!</strong>  Your token is <code>' . $user->token . '</code>, and your calendar is <a href="?token=' . $user->token . '&ical=1">here</a> (or in plain text <a href="?token=' . $user->token . '">here</a>).</p>
+        page('<p><strong>Success!</strong>  Your token is <code>' . $user->token . '</code>, and your calendar is <a href="?token=' . $user->token . '">here</a> (or in plain text <a href="?token=' . $user->token . '&text=1">here</a>).</p>
 <p>In order to keep your calendar up-to-date, you will need to subscribe to it using the following URL:</p>
 <code>http://' . $_SERVER[HTTP_HOST] . $_SERVER[REQUEST_URI] . '?token=' . $user->token . '&ical=1</code>
 <p>If the tasks appear on your calendar in the wrong time zone (i.e. at the wrong hour), you can override this by adding <code>&offset=X</code> to the end of the URL, where X is the number of hours to adjust by.  Decimal values are allowed, and to reduce the time, use a negative offset.</p>
+<p>If you are using an application that supports <code>VTODO</code> items, you can add <code>&todo=1</code> to the URL to generate to-do items instead.  These will probably appear in the tasks section of your application.</p>
 <p><em>Please note that this app is in alpha &ndash; things are likely to break, and the URL is liable to change.</em></p>');
     } else {
         page('<p>An error was returned by Astrid:</p>
